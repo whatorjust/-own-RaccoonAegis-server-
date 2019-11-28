@@ -3,7 +3,7 @@ from flask import Flask, jsonify, request, redirect
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
-print(flask.__version__)
+# print(flask.__version__)
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test.db"
