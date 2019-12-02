@@ -1,0 +1,4 @@
+{
+    "python.pythonPath": "/Users/a/Desktop/RaccoonAegis-server/env/bin/python3.6",
+    "python.formatting.provider": "black"
+}
