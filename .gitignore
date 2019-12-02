@@ -1,0 +1,8 @@
+.vscode/
+FLASKINTRODUCTION.egg-info/
+__pycache__/
+dist/
+env/
+test.db
+build
+machine_learning
