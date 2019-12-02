@@ -13,13 +13,14 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 
+
 class User(db.Model):
     __table_name__ = "user"
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(200), nullable=False)
-    posts = db.relationship("Post", backref="author", uselist=False)
+    posts = db.relationship("Post", backref="author", lazy=True)
 
     def __init__(self, username, password, **kwargs):
         self.username = username
@@ -34,29 +35,33 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password, password)
 
+
 class Post(db.Model):
     __table_name__ = "post"
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id")) # User, Post 연동
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))  # User, Post 연동
 
     def __repr__(self):
-        return f"<Post('{self.id}', '{self.title}')>"
+        return f"<Post('{self.id}')>"
+
 
 class UserSchema(ma.ModelSchema):
     class Meta:
         model = User
 
+
 class PostSchema(ma.ModelSchema):
     class Meta:
         model = Post
 
-@app.route("/signup", methods=["POST", "DELETE"]) # 회원가입/탈퇴
+
+@app.route("/signup", methods=["POST", "DELETE"])  # 회원가입/탈퇴
 def signup():
-    if request.method == "POST": # 회원가입
-        print (request.method)
-        print (request.json)
+    if request.method == "POST":  # 회원가입
+        print(request.method)
+        print(request.json)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
         new_user = User(username=receive_username, password=receive_password)
@@ -69,11 +74,11 @@ def signup():
         except:
             return make_response(jsonify("중복된 아이디입니다."), 300)
 
-    elif request.method == "DELETE": # 회원탈퇴
-        print (request.method)
+    elif request.method == "DELETE":  # 회원탈퇴
+        print(request.method)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
-        deleteUser = User.query.filter_by(username = receive_username).first()
+        deleteUser = User.query.filter_by(username=receive_username).first()
 
         try:
             db.session.delete(deleteUser)
@@ -83,78 +88,74 @@ def signup():
         except:
             return make_response(jsonify("회원정보가 일치하지 않습니다."), 300)
 
-@app.route("/signin", methods=["POST", "GET"]) # 로그인/아웃
+
+@app.route("/signin", methods=["POST", "GET"])  # 로그인/아웃
 def signin():
-    if request.method == "POST": # 로그인
-        print (request.method)
+    if request.method == "POST":  # 로그인
+        print(request.method)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
-        login_user = User.query.filter_by(username = receive_username).first()
+        login_user = User.query.filter_by(username=receive_username).first()
 
-        if session:
-            return make_response(jsonify("이미 로그인이 되어있습니다."), 300)
+        # if session:
+        #     return make_response(jsonify("이미 로그인이 되어있습니다."), 300)
 
         if login_user and check_password_hash(login_user.password, receive_password):
             # 로그인 성공 메시지, 유저정보 반환, 토큰 발행
-            session[receive_username] = True
+            session["username"] = receive_username
+            print(session.get)
             return make_response(jsonify("로그인이 완료되었습니다."), 200)
-            
+
         return make_response(jsonify("회원정보가 일치하지 않습니다."), 404)
 
-    elif request.method == "GET": # 로그아웃
-        print (request.method)
+    elif request.method == "GET":  # 로그아웃
+        print(request.method)
         session.clear()
         return make_response(jsonify("로그아웃이 완료되었습니다."), 200)
-    
-@app.route("/userWord", methods=["POST", "DELETE"]) # 단어 추가/일괄 삭제
+
+
+@app.route("/inputWord", methods=["POST", "DELETE"])  # 단어 추가/일괄 삭제
 def inputWord():
-    if request.method == "POST":
-        print (request.method)
-        if session:
-            return jsonify("로그인 된 상태에서 단어 추가.")
-        else:
-            return jsonify("로그인이 되지 않은 상태에서 단어 추가 시도.")
-        # receive_username = request.json.get("mail")
-        # receive_password = request.json.get("pw")
-        recieve_message = request.json.get("inputWord")
-        login_user_id = User.query.filter_by(username = receive_username).first().id
-        print (login_user_id)
+    if session:
+        if request.method == "POST":
+            recieve_message = request.json.get("inputWord")
+            login_user_id = (
+                User.query.filter_by(username=session["username"]).first().id
+            )
+            new_post = Post(content=recieve_message, user_id=login_user_id)
+            db.session.add(new_post)
+            db.session.commit()
+            return_arr = []
+            login_user_word = (
+                User.query.filter_by(username=session["username"]).first().posts
+            )
+            for user in login_user_word:
+                return_arr.append(Post.query.filter_by(id=user.id).first().content)
+            return jsonify({"userWord": return_arr})
 
-        # asdf = Post.query.filter_by(id = login_user_id).first().content
+        elif request.method == "DELETE":
+            login_user_id = (
+                User.query.filter_by(username=session["username"]).first().id
+            )
+            Post.query.filter_by(user_id=login_user_id).delete()
+            db.session.commit()
+            return_arr = []
+            login_user_word = (
+                User.query.filter_by(username=session["username"]).first().posts
+            )
+            # print("여기야", login_user_word)
+            for user in login_user_word:
+                return_arr.append(Post.query.filter_by(id=user.id).first().content)
+            return jsonify({"userWord": return_arr})
+    else:
+        return make_response(jsonify("세션이 존재하지 않습니다."), 404)
 
-# id1 = [바보]
-# id2 = [바보, 멍청이]
 
-# id email
-# 2  hello123@email.com
-# 3 slkdjflkse@email.com
-
-# id content fkey 
-# 1  바보      2
-# 2  멍청이     2
-# 3  천재      3
-
-
-
-        new_post = Post(content = recieve_message, id = login_user_id)
-
-        db.session.add(new_post)
-        db.session.commit()
-        asdf2 = Post.query.filter_by(id = login_user_id).first()
-
-        return jsonify(asdf2)
-        
-        # username으로 id number를 조회하여 그 id number로 post 테이블을 조회한다.
-        # post 테이블 안에 해당 id number를 조회하여 내용이 없으면 add, 없으면 update를 한다.
-        
-
-    elif request.method == "DELETE":
-        print (request.method)
-
-@app.route("/usemodel", methods=["POST"]) # ?
+@app.route("/usemodel", methods=["POST"])  # ?
 def usemodel():
     if request.method == "POST":
-        print (request.method)
+        print(request.method)
+
 
 db.create_all()
 
