@@ -3,6 +3,8 @@ from flask import Flask, jsonify, request, redirect, make_response, session
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_marshmallow import Marshmallow
+import machine_learning
+from machine_learning import deep_model_user
 
 # print(flask.__version__)
 
@@ -56,6 +58,9 @@ class PostSchema(ma.ModelSchema):
     class Meta:
         model = Post
 
+# # @app.route("/", methods=["GET"])
+# # def testing():
+#     return jsonify(test2.asdf)
 
 @app.route("/signup", methods=["POST", "DELETE"])  # 회원가입/탈퇴
 def signup():
@@ -104,7 +109,14 @@ def signin():
             # 로그인 성공 메시지, 유저정보 반환, 토큰 발행
             session["username"] = receive_username
             print(session.get)
-            return make_response(jsonify("로그인이 완료되었습니다."), 200)
+            return_arr = []
+            login_user_word = (
+                User.query.filter_by(username=session["username"]).first().posts
+            )
+            for user in login_user_word:
+                return_arr.append(Post.query.filter_by(id=user.id).first().content)
+            return make_response(jsonify({"userWord": return_arr}), 200)
+            # return make_response(jsonify("로그인이 완료되었습니다."), 200)
 
         return make_response(jsonify("회원정보가 일치하지 않습니다."), 404)
 
@@ -114,9 +126,19 @@ def signin():
         return make_response(jsonify("로그아웃이 완료되었습니다."), 200)
 
 
-@app.route("/inputWord", methods=["POST", "DELETE"])  # 단어 추가/일괄 삭제
+@app.route("/inputWord", methods=["GET", "POST", "DELETE"])  # 단어 추가/일괄 삭제
 def inputWord():
     if session:
+        if request.method == "GET":
+            return_arr = []
+            login_user_word = (
+                User.query.filter_by(username=session["username"]).first().posts
+            )
+            for user in login_user_word:
+                return_arr.append(Post.query.filter_by(id=user.id).first().content)
+            return make_response(jsonify({"userWord": return_arr}), 200)
+
+
         if request.method == "POST":
             recieve_message = request.json.get("inputWord")
             login_user_id = (
