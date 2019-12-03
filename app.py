@@ -108,15 +108,15 @@ def signin():
         if login_user and check_password_hash(login_user.password, receive_password):
             # 로그인 성공 메시지, 유저정보 반환, 토큰 발행
             session["username"] = receive_username
-            print(session.get)
-            return_arr = []
-            login_user_word = (
-                User.query.filter_by(username=session["username"]).first().posts
-            )
-            for user in login_user_word:
-                return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            return make_response(jsonify({"userWord": return_arr}), 200)
-            # return make_response(jsonify("로그인이 완료되었습니다."), 200)
+            print(session["username"])
+            # return_arr = []
+            # login_user_word = (
+            #     User.query.filter_by(username=session["username"]).first().posts
+            # )
+            # for user in login_user_word:
+            #     return_arr.append(Post.query.filter_by(id=user.id).first().content)
+            # return make_response(jsonify({"userWord": return_arr}), 200)
+            return make_response(jsonify("로그인이 완료되었습니다."), 200)
 
         return make_response(jsonify("회원정보가 일치하지 않습니다."), 404)
 
@@ -136,7 +136,7 @@ def inputWord():
             )
             for user in login_user_word:
                 return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            return make_response(jsonify({"userWord": return_arr}), 200)
+            return jsonify({"userWord": return_arr})
 
 
         if request.method == "POST":
@@ -176,7 +176,8 @@ def inputWord():
 @app.route("/usemodel", methods=["POST"])  # ?
 def usemodel():
     if request.method == "POST":
-        print(request.method)
+        request_text = request.json.get("text")
+        return make_response({"prob" : deep_model_user.deep_learn(request_text)}, 200)
 
 
 db.create_all()

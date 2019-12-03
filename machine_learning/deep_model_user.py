@@ -1,53 +1,60 @@
 from konlpy.tag import Okt
-
-okt = Okt()
-
+import os.path
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
-
-maxlen = 20
-max_words = 10000
-
-tokenizer = Tokenizer(num_words=max_words)
-
 import json
-
-with open("wordIndex.json") as json_file:
-    word_index = json.load(json_file)
-    tokenizer.word_index = word_index
-
 from keras.models import load_model
 
-model = load_model("model.h5")
+# import tensorflow as tf
+from keras import backend
 
-examples = [
-    "여기에 원하는 문장을 입력하세요.",
-    "그러면 각각의 문장이 악플일 확률을 출력합니다.",
-    "힘내세요! 응원합니다",
-]
+def deep_learn(arr):
 
-ex_morpheme = []
+    okt = Okt()
 
-for text in examples:
-    union = ""
-    for word_tag in okt.pos(text, norm=True, stem=True):
-        if word_tag[1] in [
-            "Noun",
-            "Verb",
-            "VerbPrefix",
-            "Adjective",
-            "Determiner",
-            "Adverb",
-            "Exclamation",
-            "KoreanParticle",
-        ]:
-            union += word_tag[0]
-            union += " "
-    ex_morpheme.append(union)
+    maxlen = 50
+    max_words = 10000
 
-sequences = tokenizer.texts_to_sequences(ex_morpheme)
-x_test = pad_sequences(sequences, maxlen=maxlen)
+    tokenizer = Tokenizer(num_words=max_words)
 
-value_predicted = model.predict(x_test)
-for i in range(0, len(x_test)):
-    print(examples[i], ":", round(value_predicted[i][0] * 100, 1), "%의 확률로 악플입니다.")
+    with open(os.path.abspath("machine_learning/wordIndex.json")) as json_file:
+        word_index = json.load(json_file)
+        tokenizer.word_index = word_index
+
+    model = load_model(os.path.abspath("machine_learning/a_model.h5"))
+
+    examples = arr
+
+    ex_morpheme = []
+
+    for text in examples:
+        union = ""
+        for word_tag in okt.pos(text, norm=True, stem=True):
+            if word_tag[1] in [
+                "Noun",
+                "Verb",
+                "VerbPrefix",
+                "Adjective",
+                "Determiner",
+                "Adverb",
+                "Exclamation",
+                "KoreanParticle",
+            ]:
+                union += word_tag[0]
+                union += " "
+        ex_morpheme.append(union)
+
+    sequences = tokenizer.texts_to_sequences(ex_morpheme)
+    x_test = pad_sequences(sequences, maxlen=maxlen)
+
+    value_predicted = model.predict(x_test)
+    # for i in range(0, len(x_test)):
+    #     print(examples[i], ":", round(value_predicted[i][0] * 100, 1), "%의 확률로 악플입니다.")
+    return_value = []
+
+    for i in range(0, len(x_test)):
+        return_value.append(str(round(value_predicted[i][0], 3)))
+
+    backend.clear_session()
+
+    return return_value
