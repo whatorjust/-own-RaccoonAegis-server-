@@ -10,6 +10,8 @@ from keras import backend
 
 def deep_learn(arr):
 
+    backend.clear_session()
+
     okt = Okt()
 
     maxlen = 50
@@ -54,7 +56,5 @@ def deep_learn(arr):
 
     for i in range(0, len(x_test)):
         return_value.append(str(round(value_predicted[i][0], 3)))
-
-    backend.clear_session()
 
     return return_value

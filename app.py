@@ -2,18 +2,15 @@ from flask_sqlalchemy import SQLAlchemy
 from flask import Flask, jsonify, request, redirect, make_response, session
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_marshmallow import Marshmallow
 import machine_learning
 from machine_learning import deep_model_user
 
-# print(flask.__version__)
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///test.db"
 app.config["SECRET_KEY"] = "this is secret"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
-ma = Marshmallow(app)
 
 
 class User(db.Model):
@@ -43,30 +40,27 @@ class Post(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"))  # User, Post 연동
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id")) # User, Post 연동
 
     def __repr__(self):
         return f"<Post('{self.id}')>"
 
 
-class UserSchema(ma.ModelSchema):
-    class Meta:
-        model = User
+def return_user_word():
+    return_arr = []
+    login_user_word = (
+        User.query.filter_by(username=session["username"]).first().posts
+    )
+    for user in login_user_word:
+        return_arr.append(Post.query.filter_by(id=user.id).first().content)
+
+    return return_arr
 
 
-class PostSchema(ma.ModelSchema):
-    class Meta:
-        model = Post
-
-# # @app.route("/", methods=["GET"])
-# # def testing():
-#     return jsonify(test2.asdf)
-
-@app.route("/signup", methods=["POST", "DELETE"])  # 회원가입/탈퇴
+@app.route("/signup", methods=["POST", "DELETE"]) # 회원가입/탈퇴
 def signup():
-    if request.method == "POST":  # 회원가입
+    if request.method == "POST": # 회원가입
         print(request.method)
-        print(request.json)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
         new_user = User(username=receive_username, password=receive_password)
@@ -79,7 +73,7 @@ def signup():
         except:
             return make_response(jsonify("중복된 아이디입니다."), 300)
 
-    elif request.method == "DELETE":  # 회원탈퇴
+    elif request.method == "DELETE": # 회원탈퇴
         print(request.method)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
@@ -94,52 +88,36 @@ def signup():
             return make_response(jsonify("회원정보가 일치하지 않습니다."), 300)
 
 
-@app.route("/signin", methods=["POST", "GET"])  # 로그인/아웃
+@app.route("/signin", methods=["POST", "GET"]) # 로그인/아웃
 def signin():
-    if request.method == "POST":  # 로그인
+    if request.method == "POST": # 로그인
         print(request.method)
         receive_username = request.json.get("mail")
         receive_password = request.json.get("pw")
         login_user = User.query.filter_by(username=receive_username).first()
 
-        # if session:
-        #     return make_response(jsonify("이미 로그인이 되어있습니다."), 300)
-
         if login_user and check_password_hash(login_user.password, receive_password):
-            # 로그인 성공 메시지, 유저정보 반환, 토큰 발행
             session["username"] = receive_username
             print(session["username"])
-            # return_arr = []
-            # login_user_word = (
-            #     User.query.filter_by(username=session["username"]).first().posts
-            # )
-            # for user in login_user_word:
-            #     return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            # return make_response(jsonify({"userWord": return_arr}), 200)
             return make_response(jsonify("로그인이 완료되었습니다."), 200)
 
         return make_response(jsonify("회원정보가 일치하지 않습니다."), 404)
 
-    elif request.method == "GET":  # 로그아웃
+    elif request.method == "GET": # 로그아웃
         print(request.method)
         session.clear()
         return make_response(jsonify("로그아웃이 완료되었습니다."), 200)
 
 
-@app.route("/inputWord", methods=["GET", "POST", "DELETE"])  # 단어 추가/일괄 삭제
+@app.route("/inputWord", methods=["GET", "POST", "DELETE"]) # 단어 추가/일괄 삭제
 def inputWord():
     if session:
-        if request.method == "GET":
-            return_arr = []
-            login_user_word = (
-                User.query.filter_by(username=session["username"]).first().posts
-            )
-            for user in login_user_word:
-                return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            return jsonify({"userWord": return_arr})
+        if request.method == "GET": # 로그인 할 때 단어 로딩
+            print(request.method)
+            return jsonify({"userWord": return_user_word()})
 
-
-        if request.method == "POST":
+        if request.method == "POST": # 단어 추가 후 단어 로딩
+            print(request.method)
             recieve_message = request.json.get("inputWord")
             login_user_id = (
                 User.query.filter_by(username=session["username"]).first().id
@@ -147,38 +125,31 @@ def inputWord():
             new_post = Post(content=recieve_message, user_id=login_user_id)
             db.session.add(new_post)
             db.session.commit()
-            return_arr = []
-            login_user_word = (
-                User.query.filter_by(username=session["username"]).first().posts
-            )
-            for user in login_user_word:
-                return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            return jsonify({"userWord": return_arr})
+            return jsonify({"userWord": return_user_word()})
 
-        elif request.method == "DELETE":
+        if request.method == "DELETE": # 단어 일괄 삭제
+            print(request.method)
             login_user_id = (
                 User.query.filter_by(username=session["username"]).first().id
             )
             Post.query.filter_by(user_id=login_user_id).delete()
             db.session.commit()
-            return_arr = []
-            login_user_word = (
-                User.query.filter_by(username=session["username"]).first().posts
-            )
-            # print("여기야", login_user_word)
-            for user in login_user_word:
-                return_arr.append(Post.query.filter_by(id=user.id).first().content)
-            return jsonify({"userWord": return_arr})
+            return jsonify({"userWord": return_user_word()})
+
     else:
         return make_response(jsonify("세션이 존재하지 않습니다."), 404)
 
 
-@app.route("/usemodel", methods=["POST"])  # ?
+@app.route("/usemodel", methods=["POST"]) # 단어나 문장 머신러닝으로 체크
 def usemodel():
     if request.method == "POST":
+        print(request.method)
+        print(1234, request.json.get("text"))
         request_text = request.json.get("text")
-        return make_response({"prob" : deep_model_user.deep_learn(request_text)}, 200)
-
+        if request_text:
+            return make_response({ "prob" : deep_model_user.deep_learn(request_text) }, 200)
+        else:
+            return make_response(jsonify("아무 데이터가 들어오지 않았어요 ㅠㅠ"), 400)
 
 db.create_all()
 
